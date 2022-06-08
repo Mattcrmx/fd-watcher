@@ -1,17 +1,18 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <dirent.h>
-#include <math.h>
 #include <string.h>
 #include <ctype.h>
 
 int check_args(int args, int required);
 void *safe_malloc(size_t size);
 char *trim(char *str);
-int get_pid_by_name(char name[], int start, int end);
-int count_descriptors (char name[]);
+int get_pid_by_name(char name[]);
+int get_pid_by_name_naive(char name[], int start, int end);
+int count_descriptors_by_name (char name[]);
+int count_descriptors_by_pid (int pid);
 int is_number (char *nb);
-int get_pid_by_name_advanced (char name[]);
+
 
 #define BUF_SIZE 1024
 char buffer[BUF_SIZE];
@@ -65,7 +66,7 @@ char *trim (char *str) {
     return str;
 }
 
-int get_pid_by_name (char name[], int start, int end) {
+int get_pid_by_name_naive (char name[], int start, int end) {
     // naive function that relies on /proc to search
     // for process dirs and status files to find the
     // pid based on the name
@@ -84,7 +85,7 @@ int get_pid_by_name (char name[], int start, int end) {
         if (fp != NULL) {
             // read the file's content
             while (fgets(buffer, BUF_SIZE, fp) != NULL) {
-                /* Total character read count */
+                // Total character read count
                 length = strlen(buffer);
                  // Trim new line character from last if exists.
                 buffer[length-1] = buffer[length-1] == '\n' ? '\0' : buffer[length-1];
@@ -113,7 +114,7 @@ int get_pid_by_name (char name[], int start, int end) {
     return -1;
 }
 
-int get_pid_by_name_advanced (char name[]) {
+int get_pid_by_name (char name[]) {
     DIR *proc;
     proc = opendir("/proc");
     char *status_path = safe_malloc(50);
@@ -171,14 +172,19 @@ int get_pid_by_name_advanced (char name[]) {
 
 }
 
-int count_descriptors (char name[]) {
+int count_descriptors_by_name (char name[]) {
+    // wrapper around the count_descriptors_by_pid function
+    int pid = get_pid_by_name(name);
+    int descriptors = count_descriptors_by_pid(pid);
+
+    return descriptors;
+}
+
+int count_descriptors_by_pid (int pid) {
     int nb_fd = 0;
-    // TODO: find way to put defaults
-    // int pid = get_pid_by_name(name, 300000, 500000);
-    int pid = get_pid_by_name_advanced(name);
 
     if (pid == -1) {
-        printf("process %s was not found on the system.\n", name);
+        printf("process %d was not found on the system.\n", pid);
         return -1;
     }
 
@@ -195,26 +201,4 @@ int count_descriptors (char name[]) {
     }
 
     return nb_fd;
-}
-
-
-int main (int argc, char *argv[]) {
-    if (check_args(argc, 2) == 1) {
-        exit(1);
-    }
-
-    char *name = argv[1];
-    int descriptors = count_descriptors(name);
-
-    if (descriptors > 0) {
-        printf("process %s: %d \n", name, descriptors);
-        return 0;
-    }
-    else if (descriptors == 0) {
-        printf("no descriptors open for process %s\n", name);
-    }
-    else {
-        printf("no pid found for name %s\n", name);
-        return 1;
-    }
 }
